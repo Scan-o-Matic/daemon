@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  scanomatic:
+    privileged: true
+    build: .
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
