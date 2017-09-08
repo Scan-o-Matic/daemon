@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# this can be used to fake a scanner when no one is available
+# it can be triggered from the daemon using something like
+
+# +    if args.no_scanner:
+# +        _logger.info("Faking scanner")
+# +        if not os.path.isfile('/usr/local/bin/scanimage'):
+# +            os.symlink('/tmp/scripts/fscanimage','/usr/local/bin/scanimage')
+# +        if not os.path.isfile('/usr/local/bin/scanimage'):
+# +            os.symlink('/tmp/scripts/fscanimage','/usr/local/bin/scanimage')
+# +    else:
+# +        if os.path.isfile('/usr/local/bin/scanimage'):
+# +            _logger.info("Removing fake scanner")
+# +            os.remove('/usr/local/bin/scanimage')
+
+set -e
+
+# exit function
+function cleanexit {
+
+    popd &> /dev/null
+    exit "$1"
+
+}
+
+# really complicated way of finding script source directory (https://stackoverflow.com/posts/246128/revisions)
+function scriptdir {
+
+    SOURCE="${BASH_SOURCE[0]}"
+    while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+	DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+	SOURCE="$(readlink "$SOURCE")"
+	[[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+    done
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+}
+
+# print scanner found
+if [ "$1" = "-L" ]; then
+    
+    echo "device \`epson2:libusb:001:083' is a Epson GT-X980 flatbed scanner"
+    exit 0
+
+fi
+
+# print sane version
+if [ "$1" = "-V" ]; then
+
+    echo "scanimage (sane-backends) 1.0.27; backend version 1.0.27"
+    exit 0
+
+fi
+
+# produce tiff to stdout
+if [ "$1" = "-d" ]; then
+
+    # put script dir on stack and let's go there!
+    scriptdir
+    pushd "$DIR" &> /dev/null
+
+    # we are running in "dev" mode
+    if [ ! -z ../scanomatic/image_analysis/test/testdata/test_fixture_easy.tiff ]; then
+	cat ../scanomatic/image_analysis/test/testdata/test_fixture_easy.tiff
+	cleanexit 0
+    # we are probably running in "prod" mode
+    elif [ ! -z tmp/scanomatic/image_analysis/test/testdata/test_fixture_easy.tiff ]; then
+	cat tmp/scanomatic/image_analysis/test/testdata/test_fixture_easy.tiff
+	cleanexit 0
+    fi
+    
+    echo "No image test data found"
+    cleanexit 1
+    
+fi
+
+# help mode
+echo "This is a fake scanimage program, it can take:"
+echo "-d : to echo a tiff image to stdout"
+echo "-L : to echo a scanner found to stdout"
+echo "-V : to echo a sane version to stdout"
